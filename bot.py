@@ -1,30 +1,48 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 from flask import Flask, request
 import telebot
 
-# Токен и ID канала из окружения
-TOKEN      = os.environ["BOT_TOKEN"]
-CHANNEL_ID = os.environ["CHANNEL_ID"]  # строка, либо "@dropifycs", либо "-1001234567890"
+# === File Logging Setup ===
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+file_handler = RotatingFileHandler(
+    'bot.log', maxBytes=5*1024*1024, backupCount=3, encoding='utf-8'
+)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+# Also log Flask (werkzeug) events
+logging.getLogger('werkzeug').addHandler(file_handler)
+
+# === Telegram Bot and Flask Setup ===
+TOKEN      = os.environ.get("BOT_TOKEN")
+CHANNEL_ID = os.environ.get("CHANNEL_ID")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # e.g. https://dropify-bot.onrender.com
+
+if not TOKEN:
+    logger.error("BOT_TOKEN environment variable is missing")
+    raise RuntimeError("Не задана переменная окружения BOT_TOKEN")
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
 WEBHOOK_PATH = f"/{TOKEN}"
-WEBHOOK_URL  = os.environ["WEBHOOK_URL"]  # https://dropify-bot.onrender.com
 
-# Health‑check для Render
+# Health-check for Render
 @app.route("/", methods=["GET"])
 def index():
     return "OK", 200
 
-# Webhook-роут
+# Webhook endpoint
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
-    update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
+    update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
     bot.process_new_updates([update])
     return "OK", 200
 
-# Команда /start
+# Bot command handlers
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     txt = (
@@ -34,12 +52,12 @@ def send_welcome(message):
         "/links — Партнёрские сайты\n"
         "/stats — Статистика канала"
     )
+    logger.info(f"Handled /start from {message.chat.id}")
     bot.reply_to(message, txt)
 
-# Команда /promo
 @bot.message_handler(commands=['promo'])
 def send_promo(message):
-    promo = """🔥 АКТУАЛЬНЫЕ ПРОМОКОДЫ:
+    promo = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
 
 Hellcase — DROPIFYCS
 Farmskins — DROPIFYCS
@@ -47,9 +65,9 @@ CaseBattle — DROPIFYCS
 DinoDrop — DROPIFYCS
 ForceDrop — DROPIFYCS
 """
+    logger.info(f"Handled /promo for {message.chat.id}")
     bot.send_message(message.chat.id, promo)
 
-# Команда /daily
 @bot.message_handler(commands=['daily'])
 def send_daily(message):
     daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
@@ -60,9 +78,9 @@ def send_daily(message):
 4. DinoDrop — бонус за вход + шанс на скин.
 5. ForceDrop — бонус за депозит и фри-спины.
 """
+    logger.info(f"Handled /daily for {message.chat.id}")
     bot.send_message(message.chat.id, daily)
 
-# Команда /links
 @bot.message_handler(commands=['links'])
 def send_links(message):
     links = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
@@ -73,21 +91,20 @@ CaseBattle: https://case-battle.com/partner
 DinoDrop:   https://dino-drop.com/partner
 ForceDrop:  https://forcedrop.com/partner
 """
+    logger.info(f"Handled /links for {message.chat.id}")
     bot.send_message(message.chat.id, links)
 
-# Команда /stats
 @bot.message_handler(commands=['stats'])
 def send_stats(message):
     try:
         count = bot.get_chat_member_count(CHANNEL_ID)
-    except Exception:
-        # fallback: попробуем через get_chat
+    except Exception as e:
+        logger.error("Error fetching chat member count", exc_info=True)
         chat = bot.get_chat(CHANNEL_ID)
         count = chat.get("members_count", "❓")
     bot.send_message(message.chat.id, f"👥 Подписчиков на канале: {count}")
 
-# Эндпоинт для внешнего cron‑запроса
-@app.route("/post_daily", methods=["POST"])
+# Endpoint for external cron requests\ n@app.route("/post_daily", methods=["POST"])
 def post_daily():
     daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
 
@@ -97,13 +114,16 @@ def post_daily():
 4. DinoDrop — бонус за вход + шанс на скин.
 5. ForceDrop — бонус за депозит и фри-спины.
 """
+    logger.info("Posting daily update to channel")
     bot.send_message(CHANNEL_ID, daily)
     return "Posted", 200
 
 if __name__ == "__main__":
-    # устанавливаем webhook
+    # Set webhook
     bot.remove_webhook()
     bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
-    # запускаем Flask
+    logger.info("Webhook set, bot is starting")
+
+    # Run Flask
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
