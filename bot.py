@@ -18,7 +18,7 @@ logging.getLogger('werkzeug').addHandler(file_handler)  # log Flask events
 
 # === Telegram Bot & Flask Setup ===
 TOKEN       = os.environ.get("BOT_TOKEN")
-CHANNEL_ID  = os.environ.get("CHANNEL_ID")    # e.g. "-1001234567890" or "@dropifycs"
+CHANNEL_ID  = os.environ.get("CHANNEL_ID")    # e.g. "-1001234567890"
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")   # e.g. "https://dropify-bot.onrender.com"
 
 if not TOKEN:
@@ -46,12 +46,6 @@ contest_active = False
 claimed_users = set()
 
 # === Routes ===
-
-@app.route("/", methods=["GET"])
-def index():
-    return "OK", 200
-
-# Setup webhook to receive channel_post
 @app.before_first_request
 def setup_webhook():
     bot.remove_webhook()
@@ -59,6 +53,10 @@ def setup_webhook():
         url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
         allowed_updates=["message", "channel_post"]
     )
+
+@app.route("/", methods=["GET"])
+def index():
+    return "OK", 200
 
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
@@ -103,7 +101,6 @@ def post_daily():
     return "Posted", 200
 
 # === Personal command handlers ===
-
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     txt = (
@@ -207,31 +204,35 @@ def claim(message):
     else:
         bot.reply_to(message, "✅ Вы заявились! Но приз уже забрал кто-то другой.")
 
-# === Channel Post Handlers ===
-
+# === Channel post handlers ===
 @bot.channel_post_handler(commands=['promo'])
 def channel_send_promo(channel_post):
+    promo_text = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
+
+Hellcase — DROPIFYCS
+Farmskins — DROPIFYCS
+CaseBattle — DROPIFYCS
+DinoDrop — DROPIFYCS
+ForceDrop — DROPIFYCS
+"""
     bot.send_message(channel_post.chat.id, promo_text)
 
 @bot.channel_post_handler(commands=['daily'])
 def channel_send_daily(channel_post):
+    daily_text = """🎁 ХАЛЯВА НА СЕГОДНЯ:
+
+1. Hellcase — бесплатный бонус каждый день.
+2. Farmskins — колёсико халявы каждый день.
+3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
+4. DinoDrop — бонус за вход + шанс на скин.
+5. ForceDrop — бонус за депозит и фри-спины.
+"""
     bot.send_message(channel_post.chat.id, daily_text)
 
 @bot.channel_post_handler(commands=['links'])
 def channel_send_links(channel_post):
-    bot.send_message(channel_post.chat.id, links_text)
+    links_text = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
 
-@bot.channel_post_handler(commands=['stats'])
-def channel_send_stats(channel_post):
-    try:
-        count = bot.get_chat_members_count(channel_post.chat.id)
-    except Exception:
-        count = "❓"
-    bot.send_message(channel_post.chat.id, f"👥 Подписчиков на канале: {count}")
-
-# === Main ===
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-```
+Hellcase:   https://hellcase.com/partner
+Farmskins: https://farmskins.com/partner
+CaseBattle: https://case-battle.com/partner
