@@ -1,8 +1,9 @@
-
+import os
 import telebot
 
-# ВСТАВЬ СЮДА СВОЙ ТОКЕН
-TOKEN = "7827263344:ААН-E407ZG29KZGSrhuhmLqzzcHWqV11vVO"
+TOKEN = os.environ.get("BOT_TOKEN")
+if not TOKEN:
+    raise RuntimeError("Не задана переменная окружения BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
