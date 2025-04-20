@@ -57,6 +57,7 @@ def webhook():
     bot.process_new_updates([update])
     return "OK", 200
 
+# Endpoint for external cron requests
 @app.route("/notify_promo", methods=["POST"])
 def notify_promo():
     promo = """🔥 НОВЫЕ ПРОМОКОДЫ:
@@ -79,6 +80,21 @@ ForceDrop — DROPIFYCS
     save_subscribers()
     return "Notified", 200
 
+# Endpoint for daily channel post (if needed)
+@app.route("/post_daily", methods=["POST"])
+def post_daily():
+    daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
+
+1. Hellcase — бесплатный бонус каждый день.
+2. Farmskins — колёсико халявы каждый день.
+3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
+4. DinoDrop — бонус за вход + шанс на скин.
+5. ForceDrop — бонус за депозит и фри-спины.
+"""
+    logger.info("Posting daily update to channel")
+    bot.send_message(CHANNEL_ID, daily)
+    return "Posted", 200
+
 # === Bot command handlers ===
 
 @bot.message_handler(commands=['start'])
@@ -91,6 +107,8 @@ def send_welcome(message):
         "/stats — Статистика канала\n"
         "/subscribe — Личные уведомления\n"
         "/unsubscribe — Отписаться от уведомлений\n"
+        "/start_contest — Запустить конкурс\n"
+        "/stop_contest — Остановить конкурс\n"
         "/claim — Участвовать в конкурсе"
     )
     logger.info(f"Handled /start from {message.chat.id}")
@@ -138,11 +156,10 @@ ForceDrop:  https://forcedrop.com/partner
 @bot.message_handler(commands=['stats'])
 def send_stats(message):
     try:
-        count = bot.get_chat_member_count(CHANNEL_ID)
-    except Exception:
+        count = bot.get_chat_members_count(CHANNEL_ID)
+    except Exception as e:
         logger.error("Error fetching chat member count", exc_info=True)
-        chat = bot.get_chat(CHANNEL_ID)
-        count = chat.get("members_count", "❓")
+        count = "❓"
     bot.send_message(message.chat.id, f"👥 Подписчиков на канале: {count}")
 
 @bot.message_handler(commands=['subscribe'])
@@ -160,7 +177,6 @@ def unsubscribe(message):
 @bot.message_handler(commands=['start_contest'])
 def start_contest(message):
     global contest_active, claimed_users
-    # при желании проверь message.from_user.id на админа
     contest_active = True
     claimed_users.clear()
     bot.reply_to(message, "🏁 Конкурс запущен! Первый, кто отправит /claim — получит бонус!")
