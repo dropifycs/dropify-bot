@@ -29,7 +29,7 @@ bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 WEBHOOK_PATH = f"/{TOKEN}"
 
-# === Subscribers for personal notifications ===
+# === Subscribers ===
 SUBSCRIBERS_FILE = 'subscribers.json'
 try:
     with open(SUBSCRIBERS_FILE, 'r', encoding='utf-8') as f:
@@ -51,13 +51,21 @@ claimed_users = set()
 def index():
     return "OK", 200
 
+# Setup webhook to receive channel_post
+@app.before_first_request
+def setup_webhook():
+    bot.remove_webhook()
+    bot.set_webhook(
+        url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
+        allowed_updates=["message", "channel_post"]
+    )
+
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
     update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
     bot.process_new_updates([update])
     return "OK", 200
 
-# Endpoint for external cron requests
 @app.route("/notify_promo", methods=["POST"])
 def notify_promo():
     promo = """🔥 НОВЫЕ ПРОМОКОДЫ:
@@ -80,7 +88,6 @@ ForceDrop — DROPIFYCS
     save_subscribers()
     return "Notified", 200
 
-# Endpoint for daily channel post (if needed)
 @app.route("/post_daily", methods=["POST"])
 def post_daily():
     daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
@@ -95,7 +102,7 @@ def post_daily():
     bot.send_message(CHANNEL_ID, daily)
     return "Posted", 200
 
-# === Bot command handlers ===
+# === Personal command handlers ===
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -116,7 +123,7 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['promo'])
 def send_promo(message):
-    promo = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
+    promo_text = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
 
 Hellcase — DROPIFYCS
 Farmskins — DROPIFYCS
@@ -125,11 +132,11 @@ DinoDrop — DROPIFYCS
 ForceDrop — DROPIFYCS
 """
     logger.info(f"Handled /promo for {message.chat.id}")
-    bot.send_message(message.chat.id, promo)
+    bot.send_message(message.chat.id, promo_text)
 
 @bot.message_handler(commands=['daily'])
 def send_daily(message):
-    daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
+    daily_text = """🎁 ХАЛЯВА НА СЕГОДНЯ:
 
 1. Hellcase — бесплатный бонус каждый день.
 2. Farmskins — колёсико халявы каждый день.
@@ -138,11 +145,11 @@ def send_daily(message):
 5. ForceDrop — бонус за депозит и фри-спины.
 """
     logger.info(f"Handled /daily for {message.chat.id}")
-    bot.send_message(message.chat.id, daily)
+    bot.send_message(message.chat.id, daily_text)
 
 @bot.message_handler(commands=['links'])
 def send_links(message):
-    links = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
+    links_text = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
 
 Hellcase:   https://hellcase.com/partner
 Farmskins: https://farmskins.com/partner
@@ -151,13 +158,13 @@ DinoDrop:   https://dino-drop.com/partner
 ForceDrop:  https://forcedrop.com/partner
 """
     logger.info(f"Handled /links for {message.chat.id}")
-    bot.send_message(message.chat.id, links)
+    bot.send_message(message.chat.id, links_text)
 
 @bot.message_handler(commands=['stats'])
 def send_stats(message):
     try:
         count = bot.get_chat_members_count(CHANNEL_ID)
-    except Exception as e:
+    except Exception:
         logger.error("Error fetching chat member count", exc_info=True)
         count = "❓"
     bot.send_message(message.chat.id, f"👥 Подписчиков на канале: {count}")
@@ -200,11 +207,31 @@ def claim(message):
     else:
         bot.reply_to(message, "✅ Вы заявились! Но приз уже забрал кто-то другой.")
 
+# === Channel Post Handlers ===
+
+@bot.channel_post_handler(commands=['promo'])
+def channel_send_promo(channel_post):
+    bot.send_message(channel_post.chat.id, promo_text)
+
+@bot.channel_post_handler(commands=['daily'])
+def channel_send_daily(channel_post):
+    bot.send_message(channel_post.chat.id, daily_text)
+
+@bot.channel_post_handler(commands=['links'])
+def channel_send_links(channel_post):
+    bot.send_message(channel_post.chat.id, links_text)
+
+@bot.channel_post_handler(commands=['stats'])
+def channel_send_stats(channel_post):
+    try:
+        count = bot.get_chat_members_count(channel_post.chat.id)
+    except Exception:
+        count = "❓"
+    bot.send_message(channel_post.chat.id, f"👥 Подписчиков на канале: {count}")
+
 # === Main ===
 
 if __name__ == "__main__":
-    bot.remove_webhook()
-    bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
-    logger.info("Webhook set, bot is starting")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+```
