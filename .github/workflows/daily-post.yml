@@ -2,7 +2,7 @@ name: Daily Post to Telegram
 
 on:
   schedule:
-    # каждый день в 12:00 UTC — меняй на удобное тебе время
+    # каждый день в 12:00 UTC
     - cron:  '0 12 * * *' 
 
 jobs:
