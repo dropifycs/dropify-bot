@@ -4,6 +4,7 @@ import telebot
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("Не задана переменная окружения BOT_TOKEN")
+
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
@@ -17,12 +18,6 @@ def send_welcome(message):
 /links — Партнёрские сайты
 """
     bot.reply_to(message, welcome_text.strip())
-
-
-Команды:
-/promo — Промокоды
-/daily — Халява дня
-/links — Партнёрские сайты")
 
 @bot.message_handler(commands=['promo'])
 def send_promo(message):
@@ -60,5 +55,5 @@ SkinClub: https://skin.club
 """
     bot.send_message(message.chat.id, links_text)
 
-# Запуск бота
-bot.polling()
+if __name__ == '__main__':
+    bot.polling()
