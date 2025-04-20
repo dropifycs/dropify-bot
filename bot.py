@@ -8,7 +8,16 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Добро пожаловать в Dropify CS бот!
+    welcome_text = """
+Добро пожаловать в Dropify CS бот!
+
+Команды:
+/promo — Промокоды
+/daily — Халява дня
+/links — Партнёрские сайты
+"""
+    bot.reply_to(message, welcome_text.strip())
+
 
 Команды:
 /promo — Промокоды
