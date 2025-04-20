@@ -14,15 +14,15 @@ file_handler = RotatingFileHandler(
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
-logging.getLogger('werkzeug').addHandler(file_handler)  # log Flask events
+logging.getLogger('werkzeug').addHandler(file_handler)
 
-# === Telegram Bot & Flask Setup ===
+# === Telegram Bot & Flask ===
 TOKEN       = os.environ.get("BOT_TOKEN")
-CHANNEL_ID  = os.environ.get("CHANNEL_ID")    # e.g. "-1001234567890"
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")   # e.g. "https://dropify-bot.onrender.com"
+CHANNEL_ID  = os.environ.get("CHANNEL_ID")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 
 if not TOKEN:
-    logger.error("BOT_TOKEN environment variable is missing")
+    logger.error("BOT_TOKEN environment variable missing")
     raise RuntimeError("Не задана переменная окружения BOT_TOKEN")
 
 bot = telebot.TeleBot(TOKEN)
@@ -34,18 +34,18 @@ SUBSCRIBERS_FILE = 'subscribers.json'
 try:
     with open(SUBSCRIBERS_FILE, 'r', encoding='utf-8') as f:
         subscribers = set(json.load(f))
-except Exception:
+except:
     subscribers = set()
 
 def save_subscribers():
     with open(SUBSCRIBERS_FILE, 'w', encoding='utf-8') as f:
         json.dump(list(subscribers), f, ensure_ascii=False, indent=2)
 
-# === Contest state ===
+# === Contest ===
 contest_active = False
 claimed_users = set()
 
-# === Routes ===
+# === Webhook Setup ===
 @app.before_first_request
 def setup_webhook():
     bot.remove_webhook()
@@ -54,6 +54,7 @@ def setup_webhook():
         allowed_updates=["message", "channel_post"]
     )
 
+# === Routes ===
 @app.route("/", methods=["GET"])
 def index():
     return "OK", 200
@@ -66,20 +67,20 @@ def webhook():
 
 @app.route("/notify_promo", methods=["POST"])
 def notify_promo():
-    promo = """🔥 НОВЫЕ ПРОМОКОДЫ:
-
-Hellcase — DROPIFYCS
-Farmskins — DROPIFYCS
-CaseBattle — DROPIFYCS
-DinoDrop — DROPIFYCS
-ForceDrop — DROPIFYCS
-"""
-    logger.info("Notifying subscribers of new promo")
+    promo_text = (
+        "🔥 НОВЫЕ ПРОМОКОДЫ:\n\n"
+        "Hellcase — DROPIFYCS\n"
+        "Farmskins — DROPIFYCS\n"
+        "CaseBattle — DROPIFYCS\n"
+        "DinoDrop — DROPIFYCS\n"
+        "ForceDrop — DROPIFYCS"
+    )
+    logger.info("Notifying promo subscribers")
     removed = []
     for user_id in list(subscribers):
         try:
-            bot.send_message(user_id, promo)
-        except Exception:
+            bot.send_message(user_id, promo_text)
+        except:
             removed.append(user_id)
     for rid in removed:
         subscribers.discard(rid)
@@ -88,22 +89,22 @@ ForceDrop — DROPIFYCS
 
 @app.route("/post_daily", methods=["POST"])
 def post_daily():
-    daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
-
-1. Hellcase — бесплатный бонус каждый день.
-2. Farmskins — колёсико халявы каждый день.
-3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
-4. DinoDrop — бонус за вход + шанс на скин.
-5. ForceDrop — бонус за депозит и фри-спины.
-"""
+    daily_text = (
+        "🎁 ХАЛЯВА НА СЕГОДНЯ:\n\n"
+        "1. Hellcase — бесплатный бонус каждый день.\n"
+        "2. Farmskins — колёсико халявы каждый день.\n"
+        "3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.\n"
+        "4. DinoDrop — бонус за вход + шанс на скин.\n"
+        "5. ForceDrop — бонус за депозит и фри-спины."
+    )
     logger.info("Posting daily update to channel")
-    bot.send_message(CHANNEL_ID, daily)
+    bot.send_message(CHANNEL_ID, daily_text)
     return "Posted", 200
 
-# === Personal command handlers ===
+# === Personal Handlers ===
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    txt = (
+def handle_start(message):
+    text = (
         "Добро пожаловать в Dropify CS бот!\n\n"
         "/promo — Промокоды\n"
         "/daily — Халява дня\n"
@@ -115,124 +116,136 @@ def send_welcome(message):
         "/stop_contest — Остановить конкурс\n"
         "/claim — Участвовать в конкурсе"
     )
-    logger.info(f"Handled /start from {message.chat.id}")
-    bot.reply_to(message, txt)
+    bot.reply_to(message, text)
 
 @bot.message_handler(commands=['promo'])
-def send_promo(message):
-    promo_text = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
-
-Hellcase — DROPIFYCS
-Farmskins — DROPIFYCS
-CaseBattle — DROPIFYCS
-DinoDrop — DROPIFYCS
-ForceDrop — DROPIFYCS
-"""
-    logger.info(f"Handled /promo for {message.chat.id}")
-    bot.send_message(message.chat.id, promo_text)
+def handle_promo(message):
+    promo = (
+        "🔥 АКТИВНЫЕ ПРОМОКОДЫ:\n\n"
+        "Hellcase — DROPIFYCS\n"
+        "Farmskins — DROPIFYCS\n"
+        "CaseBattle — DROPIFYCS\n"
+        "DinoDrop — DROPIFYCS\n"
+        "ForceDrop — DROPIFYCS"
+    )
+    bot.send_message(message.chat.id, promo)
 
 @bot.message_handler(commands=['daily'])
-def send_daily(message):
-    daily_text = """🎁 ХАЛЯВА НА СЕГОДНЯ:
-
-1. Hellcase — бесплатный бонус каждый день.
-2. Farmskins — колёсико халявы каждый день.
-3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
-4. DinoDrop — бонус за вход + шанс на скин.
-5. ForceDrop — бонус за депозит и фри-спины.
-"""
-    logger.info(f"Handled /daily for {message.chat.id}")
-    bot.send_message(message.chat.id, daily_text)
+def handle_daily(message):
+    daily = (
+        "🎁 ХАЛЯВА НА СЕГОДНЯ:\n\n"
+        "1. Hellcase — бесплатный бонус каждый день.\n"
+        "2. Farmskins — колёсико халявы каждый день.\n"
+        "3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.\n"
+        "4. DinoDrop — бонус за вход + шанс на скин.\n"
+        "5. ForceDrop — бонус за депозит и фри-спины."
+    )
+    bot.send_message(message.chat.id, daily)
 
 @bot.message_handler(commands=['links'])
-def send_links(message):
-    links_text = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
-
-Hellcase:   https://hellcase.com/partner
-Farmskins: https://farmskins.com/partner
-CaseBattle: https://case-battle.com/partner
-DinoDrop:   https://dino-drop.com/partner
-ForceDrop:  https://forcedrop.com/partner
-"""
-    logger.info(f"Handled /links for {message.chat.id}")
-    bot.send_message(message.chat.id, links_text)
+def handle_links(message):
+    links = (
+        "🔗 ПАРТНЁРСКИЕ ССЫЛКИ:\n\n"
+        "Hellcase: https://hellcase.com/partner\n"
+        "Farmskins: https://farmskins.com/partner\n"
+        "CaseBattle: https://case-battle.com/partner\n"
+        "DinoDrop: https://dino-drop.com/partner\n"
+        "ForceDrop: https://forcedrop.com/partner"
+    )
+    bot.send_message(message.chat.id, links)
 
 @bot.message_handler(commands=['stats'])
-def send_stats(message):
+def handle_stats(message):
     try:
         count = bot.get_chat_members_count(CHANNEL_ID)
-    except Exception:
-        logger.error("Error fetching chat member count", exc_info=True)
-        count = "❓"
+    except:
+        count = '❓'
     bot.send_message(message.chat.id, f"👥 Подписчиков на канале: {count}")
 
 @bot.message_handler(commands=['subscribe'])
-def subscribe(message):
+def handle_subscribe(message):
     subscribers.add(message.chat.id)
     save_subscribers()
-    bot.reply_to(message, "✅ Вы подписались на личные уведомления о новых промокодах.")
+    bot.reply_to(message, "✅ Подписка оформлена!")
 
 @bot.message_handler(commands=['unsubscribe'])
-def unsubscribe(message):
+def handle_unsubscribe(message):
     subscribers.discard(message.chat.id)
     save_subscribers()
-    bot.reply_to(message, "❌ Вы отписались от личных уведомлений.")
+    bot.reply_to(message, "❌ Подписка отключена.")
 
 @bot.message_handler(commands=['start_contest'])
-def start_contest(message):
+def handle_start_contest(message):
     global contest_active, claimed_users
     contest_active = True
     claimed_users.clear()
-    bot.reply_to(message, "🏁 Конкурс запущен! Первый, кто отправит /claim — получит бонус!")
+    bot.reply_to(message, "🏁 Конкурс запущен! Первый — получит бонус!")
 
 @bot.message_handler(commands=['stop_contest'])
-def stop_contest(message):
+def handle_stop_contest(message):
     global contest_active
     contest_active = False
     bot.reply_to(message, "⏹ Конкурс завершён.")
 
 @bot.message_handler(commands=['claim'])
-def claim(message):
+def handle_claim(message):
     global contest_active, claimed_users
     if not contest_active:
-        return bot.reply_to(message, "❌ Конкурс сейчас не активен.")
+        return bot.reply_to(message, "❌ Конкурс не активен.")
     if message.chat.id in claimed_users:
-        return bot.reply_to(message, "⚠️ Вы уже заявлялись.")
+        return bot.reply_to(message, "⚠️ Уже заявлялись.")
     claimed_users.add(message.chat.id)
     if len(claimed_users) == 1:
-        bot.reply_to(message, "🎉 Поздравляем! Вы первый! Вот ваш эксклюзивный бонус: EXTRADROP2025")
+        bot.reply_to(message, "🎉 Вы первый! Ваш бонус: EXTRADROP2025")
     else:
-        bot.reply_to(message, "✅ Вы заявились! Но приз уже забрал кто-то другой.")
+        bot.reply_to(message, "✅ Заявка принята, но приз уже взят.")
 
-# === Channel post handlers ===
+# === Channel Handlers ===
 @bot.channel_post_handler(commands=['promo'])
-def channel_send_promo(channel_post):
-    promo_text = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
-
-Hellcase — DROPIFYCS
-Farmskins — DROPIFYCS
-CaseBattle — DROPIFYCS
-DinoDrop — DROPIFYCS
-ForceDrop — DROPIFYCS
-"""
-    bot.send_message(channel_post.chat.id, promo_text)
+def channel_promo(post):
+    promo = (
+        "🔥 АКТИВНЫЕ ПРОМОКОДЫ:\n\n"
+        "Hellcase — DROPIFYCS\n"
+        "Farmskins — DROPIFYCS\n"
+        "CaseBattle — DROPIFYCS\n"
+        "DinoDrop — DROPIFYCS\n"
+        "ForceDrop — DROPIFYCS"
+    )
+    bot.send_message(post.chat.id, promo)
 
 @bot.channel_post_handler(commands=['daily'])
-def channel_send_daily(channel_post):
-    daily_text = """🎁 ХАЛЯВА НА СЕГОДНЯ:
-
-1. Hellcase — бесплатный бонус каждый день.
-2. Farmskins — колёсико халявы каждый день.
-3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
-4. DinoDrop — бонус за вход + шанс на скин.
-5. ForceDrop — бонус за депозит и фри-спины.
-"""
-    bot.send_message(channel_post.chat.id, daily_text)
+def channel_daily(post):
+    daily = (
+        "🎁 ХАЛЯВА НА СЕГОДНЯ:\n\n"
+        "1. Hellcase — бесплатный бонус каждый день.\n"
+        "2. Farmskins — колёсико халявы каждый день.\n"
+        "3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.\n"
+        "4. DinoDrop — бонус за вход + шанс на скин.\n"
+        "5. ForceDrop — бонус за депозит и фри-спины."
+    )
+    bot.send_message(post.chat.id, daily)
 
 @bot.channel_post_handler(commands=['links'])
-def channel_send_links(channel_post):
-    links_text = """🔗 ПАРТНЁРСКИЕ ССЫЛКИ:
+def channel_links(post):
+    links = (
+        "🔗 ПАРТНЁРСКИЕ ССЫЛКИ:\n\n"
+        "Hellcase: https://hellcase.com/partner\n"
+        "Farmskins: https://farmskins.com/partner\n"
+        "CaseBattle: https://case-battle.com/partner\n"
+        "DinoDrop: https://dino-drop.com/partner\n"
+        "ForceDrop: https://forcedrop.com/partner"
+    )
+    bot.send_message(post.chat.id, links)
 
-Hellcase:   https://hellcase.com/partner
-Farmskins: https://farmskins.com/partner
-CaseBattle: https://case-battle.com/partner
+@bot.channel_post_handler(commands=['stats'])
+def channel_stats(post):
+    try:
+        count = bot.get_chat_members_count(post.chat.id)
+    except:
+        count = '❓'
+    bot.send_message(post.chat.id, f"👥 Подписчиков: {count}")
+
+# === Run App ===
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
