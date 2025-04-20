@@ -43,7 +43,6 @@ def send_promo(message):
 
 Hellcase — DROPIFYCS
 Farmskins — DROPIFYCS
-CaseBattle — DROPIFYCS
 DinoDrop — DROPIFYCS
 ForceDrop — DROPIFYCS
 """
@@ -55,7 +54,6 @@ def send_daily(message):
 
 1. Hellcase — бесплатный бонус каждый день.
 2. Farmskins — колёсико халявы каждый день.
-3. CaseBattle — ежедневные розыгрыши и бонусы по коду DROPIFYCS.
 4. DinoDrop — бонус за вход + шанс на скин каждый день.
 5. ForceDrop — бонус за депозит и фри-спины ежедневно.
 """
@@ -65,11 +63,10 @@ def send_daily(message):
 def send_links(message):
     links_text = """🔗 ПОЛЕЗНЫЕ ПАРТНЁРСКИЕ ССЫЛКИ:
 
-Hellcase: https://hellcase.com/partner
-Farmskins: https://farmskins.com/partner
-CaseBattle: https://case-battle.com/partner
-DinoDrop: https://dino-drop.com/partner
-ForceDrop: https://forcedrop.com/partner
+Hellcase: https://hellcase.com
+Farmskins: https://farmskins.com
+DinoDrop: https://dino-drop.com
+ForceDrop: https://forcedrop.vip
 """
     bot.send_message(message.chat.id, links_text)
 
