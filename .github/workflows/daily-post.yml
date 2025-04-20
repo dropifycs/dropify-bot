@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: HTTP POST to bot
         run: |
-          curl -X POST https://dropify-bot.onrender.com/post_daily
+          curl -X POST https://dropify-bot.onrender.com
