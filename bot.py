@@ -45,15 +45,6 @@ def save_subscribers():
 contest_active = False
 claimed_users = set()
 
-# === Webhook Setup ===
-@app.before_first_request
-def setup_webhook():
-    bot.remove_webhook()
-    bot.set_webhook(
-        url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
-        allowed_updates=["message", "channel_post"]
-    )
-
 # === Routes ===
 @app.route("/", methods=["GET"])
 def index():
@@ -247,5 +238,11 @@ def channel_stats(post):
 
 # === Run App ===
 if __name__ == "__main__":
+    bot.remove_webhook()
+    bot.set_webhook(
+        url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
+        allowed_updates=["message", "channel_post"]
+    )
+    logger.info("Webhook set with allowed_updates, starting Flask")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
