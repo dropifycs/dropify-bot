@@ -25,33 +25,42 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['promo'])
 def send_promo(message):
-    bot.send_message(message.chat.id, 
-        "🔥 АКТИВНЫЕ ПРОМОКОДЫ:\n\n"
-        "Hellcase — DROPIFYCS\n"
-        "CSGOEmpire — DROPIFY\n"
-        "Farmskins — DROPIFYCS\n"
-        "KeyDrop — DROPIFYCS\n"
-        "SkinClub — DROPIFY"
-    )
+    promo_text = """🔥 АКТИВНЫЕ ПРОМОКОДЫ:
+
+Hellcase — DROPIFYCS
+Farmskins — DROPIFYCS
+CaseBattle — DROPIFYCS
+DinoDrop — DROPIFYCS
+ForceDrop — DROPIFYCS
+"""
+    bot.send_message(message.chat.id, promo_text)
+)
 
 @bot.message_handler(commands=['daily'])
 def send_daily(message):
-    bot.send_message(message.chat.id, 
-        "🎁 ХАЛЯВА НА СЕГОДНЯ:\n\n"
-        "1. Hellcase — бесплатный бонус каждый день.\n"
-        "2. CSGOEmpire — получи монету с кодом DROPIFY.\n"
-        "3. Farmskins — колёсико халявы каждый день."
+    daily_text = """🎁 ХАЛЯВА НА СЕГОДНЯ:
+
+1. Hellcase — бесплатный бонус каждый день.
+2. Farmskins — колёсико халявы каждый день.
+3. CaseBattle — ежедневные розыгрыши и бонусы по коду DROPIFYCS.
+4. DinoDrop — бонус за вход + шанс на скин каждый день.
+5. ForceDrop — бонус за депозит и фри-спины ежедневно.
+"""
+    bot.send_message(message.chat.id, daily_text)
+
     )
 
 @bot.message_handler(commands=['links'])
 def send_links(message):
-    bot.send_message(message.chat.id, 
-        "🔗 ПОЛЕЗНЫЕ ССЫЛКИ:\n\n"
-        "Hellcase: https://hellcase.com/partner\n"
-        "CSGOEmpire: https://csgoempire.com\n"
-        "Farmskins: https://farmskins.com/partner\n"
-        "KeyDrop: https://key-drop.com/promotion\n"
-        "SkinClub: https://skin.club"
+    links_text = """🔗 ПОЛЕЗНЫЕ ПАРТНЁРСКИЕ ССЫЛКИ:
+
+Hellcase: https://hellcase.com/partner
+Farmskins: https://farmskins.com/partner
+CaseBattle: https://case-battle.com/partner
+DinoDrop: https://dino-drop.com/partner
+ForceDrop: https://forcedrop.com/partner
+"""
+    bot.send_message(message.chat.id, links_text)
     )
 
 # Обработка webhook-запросов от Telegram
