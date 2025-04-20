@@ -3,12 +3,13 @@ name: Daily Post to Telegram
 on:
   schedule:
     # каждый день в 12:00 UTC
-    - cron:  '0 12 * * *' 
-
+    - cron: '0 12 * * *'
+  workflow_dispatch:      # опционально — чтобы можно было запустить вручную
+  
 jobs:
   post_daily:
     runs-on: ubuntu-latest
     steps:
       - name: HTTP POST to bot
         run: |
-          curl -X POST https://dropify-bot.onrender.com
+          curl -X POST https://dropify-bot.onrender.com/notify_promo
