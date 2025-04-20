@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request
@@ -13,13 +14,12 @@ file_handler = RotatingFileHandler(
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
-# Also log Flask (werkzeug) events
-logging.getLogger('werkzeug').addHandler(file_handler)
+logging.getLogger('werkzeug').addHandler(file_handler)  # log Flask events
 
-# === Telegram Bot and Flask Setup ===
-TOKEN      = os.environ.get("BOT_TOKEN")
-CHANNEL_ID = os.environ.get("CHANNEL_ID")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # e.g. https://dropify-bot.onrender.com
+# === Telegram Bot & Flask Setup ===
+TOKEN       = os.environ.get("BOT_TOKEN")
+CHANNEL_ID  = os.environ.get("CHANNEL_ID")    # e.g. "-1001234567890" or "@dropifycs"
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")   # e.g. "https://dropify-bot.onrender.com"
 
 if not TOKEN:
     logger.error("BOT_TOKEN environment variable is missing")
@@ -27,22 +27,60 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
-
 WEBHOOK_PATH = f"/{TOKEN}"
 
-# Health-check for Render
+# === Subscribers for personal notifications ===
+SUBSCRIBERS_FILE = 'subscribers.json'
+try:
+    with open(SUBSCRIBERS_FILE, 'r', encoding='utf-8') as f:
+        subscribers = set(json.load(f))
+except Exception:
+    subscribers = set()
+
+def save_subscribers():
+    with open(SUBSCRIBERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(list(subscribers), f, ensure_ascii=False, indent=2)
+
+# === Contest state ===
+contest_active = False
+claimed_users = set()
+
+# === Routes ===
+
 @app.route("/", methods=["GET"])
 def index():
     return "OK", 200
 
-# Webhook endpoint
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
     update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
     bot.process_new_updates([update])
     return "OK", 200
 
-# Bot command handlers
+@app.route("/notify_promo", methods=["POST"])
+def notify_promo():
+    promo = """🔥 НОВЫЕ ПРОМОКОДЫ:
+
+Hellcase — DROPIFYCS
+Farmskins — DROPIFYCS
+CaseBattle — DROPIFYCS
+DinoDrop — DROPIFYCS
+ForceDrop — DROPIFYCS
+"""
+    logger.info("Notifying subscribers of new promo")
+    removed = []
+    for user_id in list(subscribers):
+        try:
+            bot.send_message(user_id, promo)
+        except Exception:
+            removed.append(user_id)
+    for rid in removed:
+        subscribers.discard(rid)
+    save_subscribers()
+    return "Notified", 200
+
+# === Bot command handlers ===
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     txt = (
@@ -50,7 +88,10 @@ def send_welcome(message):
         "/promo — Промокоды\n"
         "/daily — Халява дня\n"
         "/links — Партнёрские сайты\n"
-        "/stats — Статистика канала"
+        "/stats — Статистика канала\n"
+        "/subscribe — Личные уведомления\n"
+        "/unsubscribe — Отписаться от уведомлений\n"
+        "/claim — Участвовать в конкурсе"
     )
     logger.info(f"Handled /start from {message.chat.id}")
     bot.reply_to(message, txt)
@@ -98,32 +139,56 @@ ForceDrop:  https://forcedrop.com/partner
 def send_stats(message):
     try:
         count = bot.get_chat_member_count(CHANNEL_ID)
-    except Exception as e:
+    except Exception:
         logger.error("Error fetching chat member count", exc_info=True)
         chat = bot.get_chat(CHANNEL_ID)
         count = chat.get("members_count", "❓")
     bot.send_message(message.chat.id, f"👥 Подписчиков на канале: {count}")
 
-# Endpoint for external cron requests\ n@app.route("/post_daily", methods=["POST"])
-def post_daily():
-    daily = """🎁 ХАЛЯВА НА СЕГОДНЯ:
+@bot.message_handler(commands=['subscribe'])
+def subscribe(message):
+    subscribers.add(message.chat.id)
+    save_subscribers()
+    bot.reply_to(message, "✅ Вы подписались на личные уведомления о новых промокодах.")
 
-1. Hellcase — бесплатный бонус каждый день.
-2. Farmskins — колёсико халявы каждый день.
-3. CaseBattle — розыгрыши и бонусы по коду DROPIFYCS.
-4. DinoDrop — бонус за вход + шанс на скин.
-5. ForceDrop — бонус за депозит и фри-спины.
-"""
-    logger.info("Posting daily update to channel")
-    bot.send_message(CHANNEL_ID, daily)
-    return "Posted", 200
+@bot.message_handler(commands=['unsubscribe'])
+def unsubscribe(message):
+    subscribers.discard(message.chat.id)
+    save_subscribers()
+    bot.reply_to(message, "❌ Вы отписались от личных уведомлений.")
+
+@bot.message_handler(commands=['start_contest'])
+def start_contest(message):
+    global contest_active, claimed_users
+    # при желании проверь message.from_user.id на админа
+    contest_active = True
+    claimed_users.clear()
+    bot.reply_to(message, "🏁 Конкурс запущен! Первый, кто отправит /claim — получит бонус!")
+
+@bot.message_handler(commands=['stop_contest'])
+def stop_contest(message):
+    global contest_active
+    contest_active = False
+    bot.reply_to(message, "⏹ Конкурс завершён.")
+
+@bot.message_handler(commands=['claim'])
+def claim(message):
+    global contest_active, claimed_users
+    if not contest_active:
+        return bot.reply_to(message, "❌ Конкурс сейчас не активен.")
+    if message.chat.id in claimed_users:
+        return bot.reply_to(message, "⚠️ Вы уже заявлялись.")
+    claimed_users.add(message.chat.id)
+    if len(claimed_users) == 1:
+        bot.reply_to(message, "🎉 Поздравляем! Вы первый! Вот ваш эксклюзивный бонус: EXTRADROP2025")
+    else:
+        bot.reply_to(message, "✅ Вы заявились! Но приз уже забрал кто-то другой.")
+
+# === Main ===
 
 if __name__ == "__main__":
-    # Set webhook
     bot.remove_webhook()
     bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
     logger.info("Webhook set, bot is starting")
-
-    # Run Flask
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
